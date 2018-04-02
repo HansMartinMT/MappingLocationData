@@ -25,26 +25,50 @@ ipak(packages)
 
 Load data
 ```{r}
-loc<-read.csv(file="ImmobilizationDataMarch2018.csv")
+caploc<-read.csv(file="ImmobilizationDataMarch2018.csv",stringsAsFactors = F)
 #format date
-loc$date<-as.Date(loc$Date, format="%m/%d/%Y")
-caploc<-loc %>% mutate(year=as.Date(date,format="%Y")) %>% filter(year==2018)
-head(caploc)
+#Format the date and time to create a time stamp. 
+
+#loc$LMT24time<-format(strptime(elkdat$LMT_Time,"%I:%M:%S %p"), format="%H:%M:%S") #this function will change 12 hour time to 24 hour time.
+  
+caploc$LMTmonth<-unlist(lapply(caploc$Date,function(x) strsplit(x, split= "/")[[1]][1])) #extracts month
+caploc$LMTday<-unlist(lapply(caploc$Date,function(x) strsplit(x, split= "/")[[1]][2]))#extracts day
+caploc$LMTyear<-unlist(lapply(caploc$Date,function(x) strsplit(x, split= "/")[[1]][3]))#extracts year
+
+caploc$LMT24date<-paste(caploc$LMTyear,caploc$LMTmonth,caploc$LMTday, sep="-") #combines date by Year-month-day
+#elkdat$timestamp<-paste(elkdat$LMT24date,elkdat$LMT24time,sep=" ") #creates a timestamp
+#elkdat$timestamp<-strptime(elkdat$timestamp,format="%Y-%m-%d %H:%M:%S")
+#elkdat$LMTtimestamp<-as.POSIXlt(elkdat$timestamp, format="%Y-%m-%d %H:%M:%S",tz="America/Denver") #format the time stamp.
+loc<-caploc[caploc$LMTyear>=2018,]
+loc<-loc[!is.na(loc$Species),]
 ```
 
-##Create a spatial points dataframe from camera data
+##Create a spatial points dataframe from capture data
 
 ```{r}
   coords<-cbind(loc$Capture.Easting,loc$Capture.Northing) #vector of coordinates
 sp=SpatialPoints(coords, #vector of coordinates
                  CRS("+proj=utm +zone=11 +ellps=WGS84 +datum=WGS84 +units=m +no_defs") #specify the coordinate reference system
                  ) 
-yhtcamlocspdf<-SpatialPointsDataFrame(
+locspdf<-SpatialPointsDataFrame(
   coords=sp, 
   data=loc #add data to make this a spatial points data frame
 )
 ```
+##Create a spatial points dataframe from survey data
 
+```{r}
+surveyloc<-read.csv(file = "ElkAerialSurvey_2018-02-19.csv", stringsAsFactors = F)
+
+coords<-cbind(surveyloc$x_proj,surveyloc$y_proj) #vector of coordinates
+sp=SpatialPoints(coords, #vector of coordinates
+                 CRS("+proj=utm +zone=11 +ellps=WGS84 +datum=WGS84 +units=m +no_defs") #specify the coordinate reference system
+                 ) 
+survlocspdf<-SpatialPointsDataFrame(
+  coords=sp, 
+  data=surveyloc #add data to make this a spatial points data frame
+)
+```
 ##Load study area extent
 
 ```{r}
@@ -61,45 +85,60 @@ BanffRegions<-readOGR("Basebnp_region/basebnp_region.shp")
 BanffRegions<-spTransform(BanffRegions,CRS("+proj=utm +zone=11 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
 
 #Elevation Raster
-#elevation<-raster("elevationDEMPRJwgs84.tif")
+elevation<-raster("elevationDEMYHTBANFF.tif")
 
 ```
 
 ##Creating a camera locations figure in tmap
-```{r, fig.height=5, fig.width=4}
+```{r, fig.height=10, fig.width=12}
 
-camlocmap<-
-  #tm_shape(elevation)+ #loads file (either shape file, raster file, etc...)
-  #tm_raster()+#specifies how r should plot the file (either as a raster, polygon, line, symbol)
-  tm_shape(BanffRegions)+ # loads banff shape file
-  tm_polygons(alpha = .5)+ #plots the shapefile as a polygonalpha =0.5 controls transparency (0-1)
-tm_shape(studyextent)+# loads banff shape file
- tm_borders(col = "Red")+ #plots only the boundary of the shapefile 
+locmap<-
+  #specifies how r should plot the file (either as a raster, polygon, line, symbol)
+  #tm_shape(BanffRegions)+ # loads banff shape file
+  #tm_polygons(alpha = .5)+ #plots the shapefile as a polygonalpha =0.5 controls transparency (0-1)
+#tm_shape(studyextent)+# loads banff shape file
+ #tm_borders(col = "Red")+ #plots only the boundary of the shapefile 
+tm_shape(elevation)+ #loads file (either shape file, raster file, etc...)
+  tm_raster()+
+  
+  tm_shape(survlocspdf,
+           is.master = T)+
+ tm_symbols(size="Total",
+              col="Sex",
+            size.lim = c(1,300),
+              title.size="Group Size",
+              title.col = "Group Composition",
+              title.shape = "Aerial Survey Locations")+
+  
 tm_shape(yahatinda)+
-  tm_polygons(col="darkgray")+
+  tm_borders(col="black")+
 
-tm_shape(yhtcamlocspdf[yhtcamlocspdf$park!="YHT Grasslands",])+
+tm_shape(locspdf)+
   tm_symbols(size=0.07, #plots the spatialpoints dataframe as symbols
-             col="park", #color is associated with the column "park" in the spatialpointsdataframe
-             labels = c("Banff","Lake Louise", "Ya Ha Tinda","Ya Ha Tinda Winter Observation"),
-             title.col =  "Camera Ownership")+
+             shape=2,
+             col="Sex", #color is associated with the column "park" in the spatialpointsdataframe
+             title.col =  "Sex",
+             title.shape = "Capture Locations")+
   tm_style_col_blind()+ #uses a colorblind cooperative colorscheme for the symbols
+  
+
   
   tm_compass(position=c("right", "top"))+ #inserts a compass showing north.
   
-  tm_add_legend(type="line", col=c("red"), title="Study Area") + #adds a custom legend
+  #tm_add_legend(type="line", col=c("red"), title="Study Area") + #adds a custom legend
   
-  tm_add_legend(type="fill", col=c("lightgrey"), title="National Park Boundary") + #adds a custom legend 
+  #tm_add_legend(type="fill", col=c("lightgrey"), title="National Park Boundary") + #adds a custom legend 
   
-  tm_add_legend(type="fill", col=c("darkgray"), title="Ya Ha Tinda Ranch") +#adds a custom legend
+  #tm_add_legend(type="fill", col=c("darkgray"), title="Ya Ha Tinda Ranch") +#adds a custom legend
+  
   
     
   tm_layout(
-    main.title = "Capture Locations and Winter Aerial Surve Locations of Male Elk",#text for main title
-            main.title.size = 0.745, #size of main title
+    main.title = "Capture Locations and Winter Aerial Survey Locations of Elk",#text for main title
+            main.title.size = 2, #size of main title
             main.title.position= c("center"),#position of main title ("top","right","bottom")
             #outer.margins = c(0,0,0,0.01), 
-            inner.margins = c(0.01,0.01,0.01,0.11), 
+            #inner.margins = c(0.01,0.01,0.01,0.11), 
             #between.margin = 0.1,
             compass.type = "arrow", #type of compass rose
             legend.outside = T, # places the legend inside the map or outside
@@ -107,15 +146,15 @@ tm_shape(yhtcamlocspdf[yhtcamlocspdf$park!="YHT Grasslands",])+
             legend.text.size=0.5,
             legend.just = c("right", "top")#specifies legend location
     ) 
-
-#create an inset map
-yahatindamap<-tm_shape(yahatinda)+ #spatial data to use
-  tm_polygons(col="darkgrey")+
-  tm_shape(yhtcamlocspdf)+
-    tm_symbols(col="darkgreen", size=0.15)+
-  tm_layout(main.title = "Ya Ha Tinda Ranch",
-            main.title.size = 0.6, 
-            main.title.position= c("center"))
+locmap
+# #create an inset map
+# yahatindamap<-tm_shape(yahatinda)+ #spatial data to use
+#   tm_polygons(col="darkgrey")+
+#   tm_shape(yhtcamlocspdf)+
+#     tm_symbols(col="darkgreen", size=0.15)+
+#   tm_layout(main.title = "Ya Ha Tinda Ranch",
+#             main.title.size = 0.6, 
+#             main.title.position= c("center"))
 
 # save_tmap(tm=camlocmap, #object name
 #           filename="cameralocationfigure.tiff", #save map to this filename
