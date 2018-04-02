@@ -1,5 +1,5 @@
 ---
-title: "MappingCameraLocations"
+title: "MappingCaptureLocations"
 author: "HansMartin"
 date: "April 2, 2018"
 output: html_document
@@ -17,7 +17,7 @@ ipak <- function(pkg){
 
 #load or install these packages:
 packages <- c("ks", "lattice", "plotrix", "adehabitatHR", "maptools", "foreign", "rgdal", "sp", "raster",
-              "ggplot2","colorRamps","rgeos","leaflet","lubridate", "htmlwidgets","move", "tmap","grid")
+              "ggplot2","colorRamps","rgeos","leaflet","lubridate", "htmlwidgets","move", "tmap","grid","dplyr","tidyr")
 
 #run function to install packages
 ipak(packages)
@@ -25,19 +25,23 @@ ipak(packages)
 
 Load data
 ```{r}
-yhtcamloc<-read.csv(file="Steenweg_locations_BNP_YHT_11_3_17.csv")
+loc<-read.csv(file="ImmobilizationDataMarch2018.csv")
+#format date
+loc$date<-as.Date(loc$Date, format="%m/%d/%Y")
+caploc<-loc %>% mutate(year=as.Date(date,format="%Y")) %>% filter(year==2018)
+head(caploc)
 ```
 
 ##Create a spatial points dataframe from camera data
 
 ```{r}
-coords<-cbind(yhtcamloc$easting,yhtcamloc$northing) #vector of coordinates
+  coords<-cbind(loc$Capture.Easting,loc$Capture.Northing) #vector of coordinates
 sp=SpatialPoints(coords, #vector of coordinates
                  CRS("+proj=utm +zone=11 +ellps=WGS84 +datum=WGS84 +units=m +no_defs") #specify the coordinate reference system
                  ) 
 yhtcamlocspdf<-SpatialPointsDataFrame(
   coords=sp, 
-  data=yhtcamloc #add data to make this a spatial points data frame
+  data=loc #add data to make this a spatial points data frame
 )
 ```
 
@@ -55,17 +59,11 @@ yahatinda<-spTransform(yahatinda,CRS("+proj=utm +zone=11 +ellps=WGS84 +datum=WGS
 #Park Regions
 BanffRegions<-readOGR("Basebnp_region/basebnp_region.shp")
 BanffRegions<-spTransform(BanffRegions,CRS("+proj=utm +zone=11 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
+
+#Elevation Raster
+#elevation<-raster("elevationDEMPRJwgs84.tif")
+
 ```
-
-##this code reprojects the raster.
-#```{r}
-elevationDEM<-raster("C:/Users/Hans Martin/Documents/R_Data/AnnualReportFigureData/elevationDEMYHTBANFF.tif") #load the elevation layer
-elevationDEM<-projectRaster(elevationDEM,crs=CRS("+proj=utm +zone=11 +ellps=WGS84 +datum=WGS84 +units=m +no_defs")) #reproject the raster so that it matches the landcover raster
-  writeRaster(elevationDEM, filename="elevationDEMPRJwgs84.tiff", overwrite=T)
-#```
-
-# elevation<-raster("C:/Users/Hans Martin/Documents/R_Data/AnnualReportFigureData/ElevationDEM/elevationDEMPRJwgs84.tif")
-
 
 ##Creating a camera locations figure in tmap
 ```{r, fig.height=5, fig.width=4}
@@ -97,7 +95,7 @@ tm_shape(yhtcamlocspdf[yhtcamlocspdf$park!="YHT Grasslands",])+
   
     
   tm_layout(
-    main.title = "Camera Traps Operated by Lake Louise, Banff, and the Ya Ha Tinda Research Project",#text for main title
+    main.title = "Capture Locations and Winter Aerial Surve Locations of Male Elk",#text for main title
             main.title.size = 0.745, #size of main title
             main.title.position= c("center"),#position of main title ("top","right","bottom")
             #outer.margins = c(0,0,0,0.01), 
