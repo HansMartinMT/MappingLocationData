@@ -61,12 +61,30 @@ locspdf<-SpatialPointsDataFrame(
 surveyloc<-read.csv(file = "ElkAerialSurvey_2018-02-19.csv", stringsAsFactors = F)
 
 coords<-cbind(surveyloc$x_proj,surveyloc$y_proj) #vector of coordinates
+
 sp=SpatialPoints(coords, #vector of coordinates
                  CRS("+proj=utm +zone=11 +ellps=WGS84 +datum=WGS84 +units=m +no_defs") #specify the coordinate reference system
                  ) 
 survlocspdf<-SpatialPointsDataFrame(
   coords=sp, 
-  data=surveyloc #add data to make this a spatial points data frame
+  data=surveyloc #add data to make this a spatial points data frameiuvcvbfjlkj
+)
+```
+
+
+##Create a spatial points dataframe from survey data
+
+```{r}
+summerloc<-read.csv(file = "2017 Summer East Slopes elk survey.csv", stringsAsFactors = F)
+
+coords<-cbind(summerloc$x_proj,summerloc$y_proj) #vector of coordinates
+
+sp=SpatialPoints(coords, #vector of coordinates
+                 CRS("+proj=utm +zone=11 +ellps=WGS84 +datum=WGS84 +units=m +no_defs") #specify the coordinate reference system
+                 ) 
+sumsurvlocspdf<-SpatialPointsDataFrame(
+  coords=sp, 
+  data=summerloc #add data to make this a spatial points data frame
 )
 ```
 ##Load study area extent
@@ -85,7 +103,7 @@ BanffRegions<-readOGR("Basebnp_region/basebnp_region.shp")
 BanffRegions<-spTransform(BanffRegions,CRS("+proj=utm +zone=11 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"))
 
 #Elevation Raster
-elevation<-raster("elevationDEMYHTBANFF.tif")
+#elevation<-raster("elevationDEMYHTBANFF.tif")
 
 ```
 
@@ -96,36 +114,45 @@ locmap<-
   #specifies how r should plot the file (either as a raster, polygon, line, symbol)
   #tm_shape(BanffRegions)+ # loads banff shape file
   #tm_polygons(alpha = .5)+ #plots the shapefile as a polygonalpha =0.5 controls transparency (0-1)
-#tm_shape(studyextent)+# loads banff shape file
- #tm_borders(col = "Red")+ #plots only the boundary of the shapefile 
-tm_shape(elevation)+ #loads file (either shape file, raster file, etc...)
-  tm_raster()+
+tm_shape(studyextent, is.master=T)+# loads banff shape file
+ tm_borders(col = "Red")+ #plots only the boundary of the shapefile 
+# tm_shape(elevation)+ #loads file (either shape file, raster file, etc...)
+#   tm_raster()+
   
-  tm_shape(survlocspdf,
-           is.master = T)+
- tm_symbols(size="Total",
+tm_shape(survlocspdf,
+           is.master = F)+
+ tm_bubbles(size="Total",
               col="Sex",
+            shape=1,
             size.lim = c(1,300),
               title.size="Group Size",
-              title.col = "Group Composition",
-              title.shape = "Aerial Survey Locations")+
+              title.col = "Winter Aerial Survey Locations Group Composition")+
+tm_shape(sumsurvlocspdf,
+           is.master = F)+
+ tm_bubbles(size="Total",
+              col="Sex",
+            shape=2,
+            size.lim = c(1,300),
+              title.size="Group Size",
+              title.col = "Summer Aerial Survey Location Group Composition",
+              title.shape = "")+
   
 tm_shape(yahatinda)+
   tm_borders(col="black")+
 
 tm_shape(locspdf)+
   tm_symbols(size=0.07, #plots the spatialpoints dataframe as symbols
-             shape=2,
+             shape=3,
              col="Sex", #color is associated with the column "park" in the spatialpointsdataframe
-             title.col =  "Sex",
-             title.shape = "Capture Locations")+
+             title.col =  "Capture Location and Sex"
+             )+
   tm_style_col_blind()+ #uses a colorblind cooperative colorscheme for the symbols
   
 
   
   tm_compass(position=c("right", "top"))+ #inserts a compass showing north.
   
-  #tm_add_legend(type="line", col=c("red"), title="Study Area") + #adds a custom legend
+  tm_add_legend(type="line", col=c("red"), title="Study Area") + #adds a custom legend
   
   #tm_add_legend(type="fill", col=c("lightgrey"), title="National Park Boundary") + #adds a custom legend 
   
@@ -134,7 +161,7 @@ tm_shape(locspdf)+
   
     
   tm_layout(
-    main.title = "Capture Locations and Winter Aerial Survey Locations of Elk",#text for main title
+    main.title = "Capture and Summer and Winter Aerial Survey Locations of Elk",#text for main title
             main.title.size = 2, #size of main title
             main.title.position= c("center"),#position of main title ("top","right","bottom")
             #outer.margins = c(0,0,0,0.01), 
@@ -156,14 +183,14 @@ locmap
 #             main.title.size = 0.6, 
 #             main.title.position= c("center"))
 
-# save_tmap(tm=camlocmap, #object name
-#           filename="cameralocationfigure.tiff", #save map to this filename
-#           width=5, #width of saved image
-#           height=4, #height of saved image
-#           units="in", #units "in", "cm"
-#           dpi=600, #dpi
-#           insets_tm = yahatindamap, #tmap object to inset
-#           insets_vp=viewport(x=0.2, y=0.155, width=0.4, height=0.4) #location of the inset map
-#           )
+save_tmap(tm=locmap, #object name
+          filename="SurveyAndCaptureLocations.tiff", #save map to this filename
+          width=5, #width of saved image
+          height=4, #height of saved image
+          units="in", #units "in", "cm"
+          dpi=600#, #dpi
+          #insets_tm = yahatindamap, #tmap object to inset
+          #insets_vp=viewport(x=0.2, y=0.155, width=0.4, height=0.4) #location of the inset map
+          )
 
 ```
